@@ -4,7 +4,30 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Blockchain Image Gallery</title>
-  <script src="https://cdn.jsdelivr.net/npm/viem@latest/dist/umd/index.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/viem@2.21.1/dist/umd/index.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    button, input {
+      margin: 10px;
+      padding: 8px;
+      font-size: 16px;
+    }
+    #gallery img {
+      max-width: 100%;
+      height: auto;
+      margin: 10px;
+    }
+    @media (max-width: 600px) {
+      button, input {
+        width: 100%;
+        box-sizing: border-box;
+      }
+    }
+  </style>
 </head>
 <body>
   <h1>Images from Blockchain</h1>
@@ -17,75 +40,47 @@
 
   <script>
     const viem = window.viem;
-    const contractAddress = '0xB3bB1704B9EE104d069c30c8afc8233f9B350ad6'; // Replace with address from Step 2
-    const abi = [[
-	{
-		"inputs": [
-			{
-				"internalType": "string",
-				"name": "_dataURI",
-				"type": "string"
-			}
-		],
-		"name": "storeImage",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "index",
-				"type": "uint256"
-			}
-		],
-		"name": "getImage",
-		"outputs": [
-			{
-				"internalType": "string",
-				"name": "",
-				"type": "string"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "getImageCount",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "imageDataURIs",
-		"outputs": [
-			{
-				"internalType": "string",
-				"name": "",
-				"type": "string"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	}
-]
+    if (!viem) {
+      console.error('Viem library not loaded');
+      alert('Failed to load required library. Please refresh the page.');
+    }
+
+    const contractAddress = '0xB3bB1704B9EE104d069c30c8afc8233f9B350ad6';
+    const abi = [
+      {
+        "inputs": [{"internalType": "uint256", "name": "index", "type": "uint256"}],
+        "name": "getImage",
+        "outputs": [{"internalType": "string", "name": "", "type": "string"}],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "getImageCount",
+        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "name": "imageDataURIs",
+        "outputs": [{"internalType": "string", "name": "", "type": "string"}],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [{"internalType": "string", "name": "_dataURI", "type": "string"}],
+        "name": "storeImage",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      }
     ];
-    const chain = viem.chains.base; // Use viem.chains.base for mainnet
+    const chain = viem.chains?.base; // Base Mainnet
+    if (!chain) {
+      console.error('Base Mainnet chain not available');
+      alert('Chain configuration failed. Please refresh the page.');
+    }
 
     let account;
     const publicClient = viem.createPublicClient({
@@ -93,69 +88,136 @@
       transport: viem.http()
     });
 
+    // Browser detection
+    function detectBrowser() {
+      const userAgent = navigator.userAgent;
+      if (userAgent.includes("Chrome")) return "Chrome";
+      if (userAgent.includes("Firefox")) return "Firefox";
+      if (userAgent.includes("Safari")) return "Safari";
+      if (userAgent.includes("Trident")) return "Internet Explorer";
+      return "Unknown";
+    }
+
+    // Mobile detection
+    function isMobile() {
+      return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+
+    // Wallet detection
+    function getWalletProvider() {
+      if (window.ethereum) {
+        // Coinbase Wallet or other injected providers
+        return window.ethereum;
+      } else if (window.coinbaseWalletExtension) {
+        // Coinbase Wallet extension fallback
+        return window.coinbaseWalletExtension;
+      } else {
+        // Mobile deep link for Coinbase Wallet app
+        if (isMobile()) {
+          window.location.href = 'https://go.cb-w.com/dapp?cb_url=' + encodeURIComponent(window.location.href);
+          return null;
+        }
+        return null;
+      }
+    }
+
     const connectButton = document.getElementById('connectButton');
     const uploadSection = document.getElementById('uploadSection');
     const storeButton = document.getElementById('storeButton');
     const imageInput = document.getElementById('imageInput');
 
     connectButton.addEventListener('click', async () => {
-      const walletClient = viem.createWalletClient({
-        chain: chain,
-        transport: viem.custom(window.ethereum)
-      });
-      [account] = await walletClient.requestAddresses();
-      connectButton.textContent = `Connected: ${account.slice(0, 6)}...`;
-      uploadSection.style.display = 'block';
+      try {
+        const browser = detectBrowser();
+        console.log(`Detected browser: ${browser}`);
+        if (browser === "Unknown" || browser === "Internet Explorer") {
+          throw new Error('Unsupported browser. Use Chrome, Firefox, or Safari.');
+        }
+
+        if (isMobile()) {
+          console.log('Detected mobile device. Attempting to open Coinbase Wallet app.');
+        }
+
+        const provider = getWalletProvider();
+        if (!provider) {
+          throw new Error('No wallet detected. Install Coinbase Wallet or use the Coinbase Wallet app on mobile.');
+        }
+
+        const walletClient = viem.createWalletClient({
+          chain: chain,
+          transport: viem.custom(provider)
+        });
+        [account] = await walletClient.requestAddresses();
+        connectButton.textContent = `Connected: ${account.slice(0, 6)}...`;
+        uploadSection.style.display = 'block';
+      } catch (error) {
+        console.error('Wallet connection failed:', error.message);
+        alert(`Connection failed: ${error.message}`);
+      }
     });
 
     storeButton.addEventListener('click', async () => {
-      const file = imageInput.files[0];
-      if (!file) return alert('Select an image first');
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const dataURI = e.target.result;
-        const walletClient = viem.createWalletClient({
-          chain: chain,
-          transport: viem.custom(window.ethereum)
-        });
-        const { request } = await publicClient.simulateContract({
-          address: contractAddress,
-          abi,
-          functionName: 'storeImage',
-          args: [dataURI],
-          account
-        });
-        const hash = await walletClient.writeContract(request);
-        alert(`Transaction sent: ${hash}`);
-        fetchAndDisplayImages(); // Refresh gallery after store
-      };
-      reader.readAsDataURL(file);
+      try {
+        const file = imageInput.files[0];
+        if (!file) throw new Error('Select an image first');
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          const dataURI = e.target.result;
+          const provider = getWalletProvider();
+          if (!provider) throw new Error('Wallet not connected.');
+          const walletClient = viem.createWalletClient({
+            chain: chain,
+            transport: viem.custom(provider)
+          });
+          const { request } = await publicClient.simulateContract({
+            address: contractAddress,
+            abi,
+            functionName: 'storeImage',
+            args: [dataURI],
+            account
+          });
+          const hash = await walletClient.writeContract(request);
+          alert(`Transaction sent: ${hash}`);
+          fetchAndDisplayImages();
+        };
+        reader.readAsDataURL(file);
+      } catch (error) {
+        console.error('Store image failed:', error.message);
+        alert(`Store failed: ${error.message}`);
+      }
     });
 
     async function fetchAndDisplayImages() {
-      const gallery = document.getElementById('gallery');
-      gallery.innerHTML = ''; // Clear existing
-      const count = await publicClient.readContract({
-        address: contractAddress,
-        abi,
-        functionName: 'getImageCount',
-      });
-      for (let i = 0; i < Number(count); i++) {
-        const image = await publicClient.readContract({
+      try {
+        const gallery = document.getElementById('gallery');
+        gallery.innerHTML = '';
+        const count = await publicClient.readContract({
           address: contractAddress,
           abi,
-          functionName: 'getImage',
-          args: [BigInt(i)],
+          functionName: 'getImageCount',
         });
-        const imgElement = document.createElement('img');
-        imgElement.src = image;
-        imgElement.alt = `Image ${i}`;
-        imgElement.style.maxWidth = '300px';
-        gallery.appendChild(imgElement);
+        for (let i = 0; i < Number(count); i++) {
+          const image = await publicClient.readContract({
+            address: contractAddress,
+            abi,
+            functionName: 'getImage',
+            args: [BigInt(i)],
+          });
+          const imgElement = document.createElement('img');
+          imgElement.src = image;
+          imgElement.alt = `Image ${i}`;
+          imgElement.style.maxWidth = '100%';
+          imgElement.style.height = 'auto';
+          imgElement.style.margin = '10px';
+          gallery.appendChild(imgElement);
+        }
+      } catch (error) {
+        console.error('Fetch images failed:', error.message);
+        alert(`Fetch images failed: ${error.message}`);
       }
     }
 
-    fetchAndDisplayImages(); // Load on page open
+    fetchAndDisplayImages();
   </script>
 </body>
 </html>
