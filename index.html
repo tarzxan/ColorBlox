@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blockchain Image Gallery</title>
+  <script src="https://cdn.jsdelivr.net/npm/viem@latest/dist/umd/index.min.js"></script>
+</head>
+<body>
+  <h1>Images from Blockchain</h1>
+  <button id="connectButton">Connect Wallet</button>
+  <div id="uploadSection" style="display: none;">
+    <input type="file" id="imageInput" accept="image/*">
+    <button id="storeButton">Store Image on Blockchain</button>
+  </div>
+  <div id="gallery"></div>
+
+  <script>
+    const viem = window.viem;
+    const contractAddress = '0xB3bB1704B9EE104d069c30c8afc8233f9B350ad6'; // Replace with address from Step 2
+    const abi = [[
+	{
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_dataURI",
+				"type": "string"
+			}
+		],
+		"name": "storeImage",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "index",
+				"type": "uint256"
+			}
+		],
+		"name": "getImage",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "getImageCount",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "imageDataURIs",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	}
+]
+    ];
+    const chain = viem.chains.base; // Use viem.chains.base for mainnet
+
+    let account;
+    const publicClient = viem.createPublicClient({
+      chain: chain,
+      transport: viem.http()
+    });
+
+    const connectButton = document.getElementById('connectButton');
+    const uploadSection = document.getElementById('uploadSection');
+    const storeButton = document.getElementById('storeButton');
+    const imageInput = document.getElementById('imageInput');
+
+    connectButton.addEventListener('click', async () => {
+      const walletClient = viem.createWalletClient({
+        chain: chain,
+        transport: viem.custom(window.ethereum)
+      });
+      [account] = await walletClient.requestAddresses();
+      connectButton.textContent = `Connected: ${account.slice(0, 6)}...`;
+      uploadSection.style.display = 'block';
+    });
+
+    storeButton.addEventListener('click', async () => {
+      const file = imageInput.files[0];
+      if (!file) return alert('Select an image first');
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const dataURI = e.target.result;
+        const walletClient = viem.createWalletClient({
+          chain: chain,
+          transport: viem.custom(window.ethereum)
+        });
+        const { request } = await publicClient.simulateContract({
+          address: contractAddress,
+          abi,
+          functionName: 'storeImage',
+          args: [dataURI],
+          account
+        });
+        const hash = await walletClient.writeContract(request);
+        alert(`Transaction sent: ${hash}`);
+        fetchAndDisplayImages(); // Refresh gallery after store
+      };
+      reader.readAsDataURL(file);
+    });
+
+    async function fetchAndDisplayImages() {
+      const gallery = document.getElementById('gallery');
+      gallery.innerHTML = ''; // Clear existing
+      const count = await publicClient.readContract({
+        address: contractAddress,
+        abi,
+        functionName: 'getImageCount',
+      });
+      for (let i = 0; i < Number(count); i++) {
+        const image = await publicClient.readContract({
+          address: contractAddress,
+          abi,
+          functionName: 'getImage',
+          args: [BigInt(i)],
+        });
+        const imgElement = document.createElement('img');
+        imgElement.src = image;
+        imgElement.alt = `Image ${i}`;
+        imgElement.style.maxWidth = '300px';
+        gallery.appendChild(imgElement);
+      }
+    }
+
+    fetchAndDisplayImages(); // Load on page open
+  </script>
+</body>
+</html>
