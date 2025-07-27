@@ -39,11 +39,12 @@
   <div id="gallery"></div>
 
   <script>
-    const viem = window.viem;
-    if (!viem) {
+    // Check if viem loaded
+    if (!window.viem) {
       console.error('Viem library not loaded');
-      alert('Failed to load required library. Please refresh the page.');
+      alert('Failed to load Viem library. Please refresh the page or disable ad-blockers.');
     }
+    const viem = window.viem;
 
     const contractAddress = '0xB3bB1704B9EE104d069c30c8afc8233f9B350ad6';
     const abi = [
@@ -76,10 +77,12 @@
         "type": "function"
       }
     ];
+
+    // Verify chain
     const chain = viem.chains?.base; // Base Mainnet
     if (!chain) {
       console.error('Base Mainnet chain not available');
-      alert('Chain configuration failed. Please refresh the page.');
+      alert('Chain configuration failed. Please refresh the page or try another browser.');
     }
 
     let account;
@@ -105,20 +108,13 @@
 
     // Wallet detection
     function getWalletProvider() {
-      if (window.ethereum) {
-        // Coinbase Wallet or other injected providers
-        return window.ethereum;
-      } else if (window.coinbaseWalletExtension) {
-        // Coinbase Wallet extension fallback
-        return window.coinbaseWalletExtension;
-      } else {
-        // Mobile deep link for Coinbase Wallet app
-        if (isMobile()) {
-          window.location.href = 'https://go.cb-w.com/dapp?cb_url=' + encodeURIComponent(window.location.href);
-          return null;
-        }
+      if (window.ethereum) return window.ethereum;
+      if (window.coinbaseWalletExtension) return window.coinbaseWalletExtension;
+      if (isMobile()) {
+        window.location.href = 'https://go.cb-w.com/dapp?cb_url=' + encodeURIComponent(window.location.href);
         return null;
       }
+      return null;
     }
 
     const connectButton = document.getElementById('connectButton');
@@ -135,7 +131,7 @@
         }
 
         if (isMobile()) {
-          console.log('Detected mobile device. Attempting to open Coinbase Wallet app.');
+          console.log('Detected mobile device. Attempting Coinbase Wallet app deep link.');
         }
 
         const provider = getWalletProvider();
