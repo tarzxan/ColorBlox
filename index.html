@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Blockchain Image Gallery</title>
+  <title>ColorBlox Gallery</title>
   <script src="https://unpkg.com/web3@1.10.4/dist/web3.min.js"></script>
   <style>
     body {
@@ -55,6 +55,12 @@
   </div>
 
   <script>
+    // Check if Web3 loaded
+    if (!window.Web3) {
+      console.error('Web3 library not loaded');
+      alert('Failed to load Web3 library. Please refresh the page or disable ad-blockers.');
+    }
+
     const contractAddress = '0xB3bB1704B9EE104d069c30c8afc8233f9B350ad6';
     const abi = [
       {
@@ -120,9 +126,9 @@
         walletPrompt.style.display = 'none';
         galleryContainer.style.display = 'block';
 
-        // Ensure Base Mainnet (chainId: '0x2135')
+        // Ensure Base Mainnet (chainId: 8453)
         const chainId = await web3.eth.getChainId();
-        if (chainId !== '0x2135') {
+        if (chainId !== 8453) {
           try {
             await window.ethereum.request({
               method: 'wallet_switchEthereumChain',
@@ -195,4 +201,3 @@
   </script>
 </body>
 </html>
-```
